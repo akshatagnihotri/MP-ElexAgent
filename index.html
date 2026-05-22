@@ -121,10 +121,18 @@
       </div>
 
       <!-- Reset and Help -->
-      <div class="control-group" style="margin-top:auto">
+      <div class="control-group" style="margin-top:auto; gap: 16px;">
         <button id="reset-btn" class="btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:8px">
           <i data-lucide="rotate-ccw" style="width:16px;height:16px"></i> Reset All Data
         </button>
+        
+        <div class="developer-credit-card" style="padding: 12px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6)); border-radius: 10px; border: 1px solid var(--card-border); text-align: center; font-size: 0.75rem; display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; box-shadow: var(--shadow-premium);">
+          <span style="color: var(--text-muted); font-weight: 500; font-size: 0.7rem; letter-spacing: 0.5px; text-transform: uppercase;">Designed & Developed by</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="code-2" style="width: 14px; height: 14px; color: var(--accent-cyan);"></i>
+            <strong style="color: var(--accent-cyan); font-weight: 700; text-shadow: 0 0 10px rgba(34, 211, 238, 0.3);">Akshat Agnihotri</strong>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -311,17 +319,19 @@
               <span>Granular Polling Booth Analysis</span>
             </div>
             
-            <div class="search-box">
-              <i data-lucide="search"></i>
-              <input type="text" id="booth-search-input" placeholder="Search booth name, number or lead party..." />
-            </div>
+            <div class="table-actions">
+              <div class="search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="booth-search-input" placeholder="Search booth name, number or lead party..." />
+              </div>
 
-            <select id="booth-party-filter" class="select-custom" style="width: 180px; padding: 8px 12px">
-              <option value="all">All Leading Parties</option>
-              <option value="BJP">BJP Lead</option>
-              <option value="INC">INC Lead</option>
-              <option value="OTHER">Others Lead</option>
-            </select>
+              <select id="booth-party-filter" class="select-custom" style="width: 180px; padding: 8px 12px">
+                <option value="all">All Leading Parties</option>
+                <option value="BJP">BJP Lead</option>
+                <option value="INC">INC Lead</option>
+                <option value="OTHER">Others Lead</option>
+              </select>
+            </div>
           </div>
 
           <div class="table-container">

@@ -451,12 +451,28 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-grow: 1;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.table-actions .select-custom {
+  flex-shrink: 0;
 }
 
 .search-box {
   position: relative;
   flex-grow: 1;
   max-width: 400px;
+  min-width: 220px;
 }
 
 .search-box input {
