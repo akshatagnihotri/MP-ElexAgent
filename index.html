@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Madhya Pradesh Election Commission 2023 - Interactive Booth Visualizer & AI Agent</title>
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- SheetJS Excel/CSV Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <!-- ApexCharts SVG Graph Library -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- =========================================
+         LEFT CONTROL PANEL (SIDEBAR)
+         ========================================= -->
+    <aside class="sidebar">
+      <div class="brand-section">
+        <div class="brand-logo">
+          <i data-lucide="vote"></i>
+        </div>
+        <div class="brand-title">
+          <h1>MP ELECTION 2023</h1>
+          <p>Booth-Wise Smart Visualizer</p>
+        </div>
+      </div>
+      
+      <div class="control-group">
+        <div class="control-label">
+          <i data-lucide="map-pin" style="width:14px;height:14px"></i> Active Region / District
+        </div>
+        <select id="district-selector" class="select-custom">
+          <option value="all">All Districts (Madhya Pradesh)</option>
+          <option value="Bhopal">Bhopal Division (Central)</option>
+          <option value="Indore">Indore Division (Western)</option>
+          <option value="Gwalior">Gwalior Division (Northern)</option>
+          <option value="Jabalpur">Jabalpur Division (Eastern)</option>
+          <option value="Ujjain">Ujjain Division (Malwa)</option>
+          <option value="Sagar">Sagar Division (Bundelkhand)</option>
+          <option value="Rewa">Rewa Division (Baghelkhand)</option>
+          <option value="Chambal">Chambal Division (North-West)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <i data-lucide="search" style="width:14px;height:14px"></i> Select Assembly Constituency
+        </div>
+        <select id="constituency-selector" class="select-custom">
+          <option value="">-- Select Constituency --</option>
+        </select>
+      </div>
+
+      <!-- File Drag and Drop Zone -->
+      <div class="control-group">
+        <div class="control-label">
+          <i data-lucide="file-spreadsheet" style="width:14px;height:14px"></i> Upload Form 20
+        </div>
+        <div id="file-uploader" class="upload-zone">
+          <div class="upload-icon">
+            <i data-lucide="upload-cloud"></i>
+          </div>
+          <div class="upload-text">
+            <h3>Drag & Drop File</h3>
+            <p>Supports .xlsx, .xls, .csv</p>
+          </div>
+          <input type="file" id="file-input" accept=".xlsx, .xls, .csv" style="display:none" />
+        </div>
+      </div>
+
+      <!-- Active File Meta -->
+      <div id="file-meta-container" style="display: none;" class="control-group">
+        <div class="control-label">Loaded Dataset</div>
+        <div class="uploaded-file-tag">
+          <i data-lucide="check-circle" style="width:14px;height:14px"></i>
+          <span id="loaded-filename">constituency_data.csv</span>
+        </div>
+      </div>
+
+      <!-- AI Swing Simulator Panel -->
+      <div id="simulator-container" class="control-group simulator-card" style="display:none; margin-top: 16px;">
+        <div class="control-label" style="color: var(--accent-cyan)">
+          <i data-lucide="sliders" style="width:14px;height:14px"></i> Swing & Turnout Simulator
+        </div>
+        <div class="sim-controls" style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); padding: 14px; border-radius: 10px;">
+          <div class="sim-slider-group">
+            <div class="sim-slider-label" style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:600; margin-bottom:4px">
+              <span>BJP ⇄ INC Swing</span>
+              <span id="swing-val" style="color: var(--accent-indigo)">0%</span>
+            </div>
+            <input type="range" id="swing-slider" min="-10" max="10" value="0" style="width: 100%; cursor: pointer;" />
+          </div>
+          <div class="sim-slider-group" style="margin-top: 10px;">
+            <div class="sim-slider-label" style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:600; margin-bottom:4px">
+              <span>Turnout Shift</span>
+              <span id="turnout-val" style="color: var(--accent-cyan)">0%</span>
+            </div>
+            <input type="range" id="turnout-slider" min="-15" max="15" value="0" style="width: 100%; cursor: pointer;" />
+          </div>
+          <div id="sim-status" class="sim-status-banner" style="margin-top:12px; padding: 6px 10px; border-radius:6px; font-size:0.7rem; font-weight:700; text-align:center; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: var(--accent-indigo)">
+            🔍 REAL-TIME MODEL PROJECTED
+          </div>
+        </div>
+      </div>
+
+      <!-- Reset and Help -->
+      <div class="control-group" style="margin-top:auto">
+        <button id="reset-btn" class="btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:8px">
+          <i data-lucide="rotate-ccw" style="width:16px;height:16px"></i> Reset All Data
+        </button>
+      </div>
+    </aside>
+
+    <!-- =========================================
+         MAIN DASHBOARD WORKSPACE
+         ========================================= -->
+    <main class="main-content">
+      
+      <!-- Top header strip -->
+      <header class="dashboard-header">
+        <div class="header-title">
+          <h2 id="constituency-display-title">Madhya Pradesh Overview</h2>
+          <p id="constituency-display-subtitle">Select a constituency and upload Form 20 data to begin booth analysis</p>
+        </div>
+        <div class="header-badges">
+          <div class="badge badge-live">
+            <span class="pulse-dot"></span> SECURE AI LOCAL
+          </div>
+          <div class="badge">
+            <i data-lucide="calendar" style="width:14px;height:14px"></i> Assembly 2023
+          </div>
+        </div>
+      </header>
+
+      <!-- Row 1: Interactive SVG Map and Key Metrics Card -->
+      <section class="grid-2col">
+        
+        <!-- MP Map Card with Tabs -->
+        <article class="card" style="display:flex; flex-direction:column; min-height: 382px;">
+          <div class="card-header-tabs" style="display:flex; gap:16px; border-bottom:1px solid var(--card-border); margin-bottom:20px; padding-bottom:10px">
+            <button class="tab-btn active" id="tab-mp-map" style="background:none; border:none; color:var(--text-main); font-weight:700; font-size:0.9rem; cursor:pointer; padding-bottom:6px; position:relative; display:flex; align-items:center; gap:6px">
+              <i data-lucide="map" style="width:16px;height:16px"></i> MP Divisions
+            </button>
+            <button class="tab-btn" id="tab-booth-grid" style="background:none; border:none; color:var(--text-muted); font-weight:600; font-size:0.9rem; cursor:pointer; padding-bottom:6px; position:relative; display:flex; align-items:center; gap:6px">
+              <i data-lucide="grid" style="width:16px;height:16px"></i> Booth Win Map
+            </button>
+          </div>
+          
+          <div id="mp-map-container" class="tab-content" style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+            <div class="svg-container">
+              <!-- Hand-crafted beautifully proportioned stylized SVG Map of Madhya Pradesh Divisions -->
+              <svg viewBox="0 0 700 450" class="map-svg">
+                <!-- Grid background lines -->
+                <defs>
+                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(99, 102, 241, 0.03)" stroke-width="1"/>
+                  </pattern>
+                  <filter id="glow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+                
+                <!-- Administrative Divisions Paths styled as glowing regions -->
+                <!-- Chambal Division (Top / North-West) -->
+                <path d="M 220 50 L 250 30 L 290 50 L 295 90 L 260 110 L 210 80 Z" 
+                      class="map-district" data-division="Chambal" data-name="Chambal Division" />
+                <!-- Gwalior Division (North) -->
+                <path d="M 260 110 L 295 90 L 330 110 L 350 160 L 300 200 L 250 170 Z" 
+                      class="map-district" data-division="Gwalior" data-name="Gwalior Division" />
+                <!-- Ujjain Division (West / Malwa) -->
+                <path d="M 100 190 L 170 160 L 210 200 L 190 270 L 110 270 L 80 230 Z" 
+                      class="map-district" data-division="Ujjain" data-name="Ujjain Division" />
+                <!-- Indore Division (South-West) -->
+                <path d="M 110 270 L 190 270 L 220 310 L 210 380 L 130 380 L 90 320 Z" 
+                      class="map-district" data-division="Indore" data-name="Indore Division" />
+                <!-- Bhopal Division (Central) -->
+                <path d="M 210 200 L 290 195 L 340 220 L 330 290 L 270 295 L 220 270 Z" 
+                      class="map-district" data-division="Bhopal" data-name="Bhopal Division" />
+                <!-- Sagar Division (Central-North / Bundelkhand) -->
+                <path d="M 330 110 L 410 115 L 450 160 L 430 230 L 340 220 L 350 160 Z" 
+                      class="map-district" data-division="Sagar" data-name="Sagar Division" />
+                <!-- Rewa Division (North-East / Baghelkhand) -->
+                <path d="M 450 160 L 530 140 L 590 170 L 570 230 L 480 230 L 430 230 Z" 
+                      class="map-district" data-division="Rewa" data-name="Rewa Division" />
+                <!-- Jabalpur Division (East / Mahakoshal) -->
+                <path d="M 330 290 L 430 230 L 480 230 L 550 290 L 510 370 L 420 380 L 360 350 Z" 
+                      class="map-district" data-division="Jabalpur" data-name="Jabalpur Division" />
+                
+                <!-- Interactive Text Nodes -->
+                <text x="250" y="70" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle" pointer-events="none">Chambal</text>
+                <text x="290" y="145" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle" pointer-events="none">Gwalior</text>
+                <text x="140" y="220" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle" pointer-events="none">Ujjain</text>
+                <text x="155" y="330" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle" pointer-events="none">Indore</text>
+                <text x="270" y="245" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle" pointer-events="none">Bhopal</text>
+                <text x="390" y="170" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle" pointer-events="none">Sagar</text>
+                <text x="510" y="185" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle" pointer-events="none">Rewa</text>
+                <text x="440" y="310" fill="#94a3b8" font-size="11" font-weight="700" text-anchor="middle" pointer-events="none">Jabalpur</text>
+              </svg>
+              <div id="map-tooltip" class="map-tooltip">Indore Division</div>
+            </div>
+          </div>
+
+          <div id="booth-grid-container" class="tab-content" style="flex-grow:1; display:none; flex-direction:column;">
+            <div class="booth-grid-wrapper" style="display:flex; flex-direction:column; height:100%;">
+              <div id="booth-waffle-legend" class="booth-legend" style="display:flex; justify-content:center; gap:16px; margin-bottom:12px; font-size:0.75rem; font-weight:600;">
+                <span style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--color-bjp); box-shadow:0 0 6px var(--color-bjp)"></span> BJP Win</span>
+                <span style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--color-inc); box-shadow:0 0 6px var(--color-inc)"></span> INC Win</span>
+                <span style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--accent-cyan); box-shadow:0 0 6px var(--accent-cyan)"></span> Other Win</span>
+              </div>
+              <div id="booth-waffle-grid" class="waffle-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(12px, 1fr)); gap:4px; max-height:220px; overflow-y:auto; padding:10px; background:rgba(15, 23, 42, 0.4); border-radius:8px; border:1px solid var(--card-border);">
+                <!-- Dynamically populated waffle grid dots -->
+                <div class="grid-empty-state" style="grid-column:1/-1; text-align:center; padding:40px 10px; color:var(--text-muted); font-size:0.8rem;">
+                  <i data-lucide="layout-grid" style="width:32px; height:32px; margin: 0 auto 10px; color:var(--text-muted); opacity:0.5;"></i>
+                  <p>Load constituency Form 20 data to map individual polling booth wins</p>
+                </div>
+              </div>
+              <div id="booth-waffle-hover-info" style="margin-top:10px; text-align:center; min-height:20px; font-size:0.75rem; font-weight:600; color:var(--text-muted)">
+                Hover over a booth block to see win margin details
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Key Metrics Panel -->
+        <div class="metrics-column">
+          
+          <div class="card" style="flex-grow:1; display:flex; flex-direction:column; justify-content:center">
+            <div class="metric-strip" style="border-color: var(--accent-indigo)">
+              <div class="metric-info">
+                <h4>Total Voters Registered</h4>
+                <p id="metric-total-voters">0</p>
+              </div>
+              <div class="metric-icon-box">
+                <i data-lucide="users"></i>
+              </div>
+            </div>
+            
+            <div class="metric-strip" style="border-color: var(--accent-cyan); margin: 12px 0">
+              <div class="metric-info">
+                <h4>Voter Turnout (Turnout %)</h4>
+                <p id="metric-turnout">0.00%</p>
+              </div>
+              <div class="metric-icon-box" style="color: var(--accent-cyan); background: rgba(34, 211, 238, 0.1)">
+                <i data-lucide="percent"></i>
+              </div>
+            </div>
+            
+            <div class="metric-strip" style="border-color: var(--color-bjp)">
+              <div class="metric-info">
+                <h4>Leading Candidate (Margin)</h4>
+                <p id="metric-winner">-</p>
+              </div>
+              <div class="metric-icon-box" id="winner-icon-box" style="color: var(--color-bjp); background: rgba(255, 153, 51, 0.1)">
+                <i data-lucide="award"></i>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Row 2: Analytical Visual Graphs -->
+      <section class="charts-grid">
+        
+        <article class="card" style="display:flex; flex-direction:column; justify-content:space-between; min-height: 382px;">
+          <div>
+            <div class="card-title">
+              <span>Overall Vote Share & Margin</span>
+              <i data-lucide="pie-chart" class="card-title-icon" style="width:18px;height:18px"></i>
+            </div>
+            <div id="vote-share-chart" style="min-height: 230px;"></div>
+          </div>
+          <div id="donut-margin-analysis" style="display:none; margin-top:10px; border-top:1px solid var(--card-border); padding-top:12px;"></div>
+        </article>
+        
+        <article class="card">
+          <div class="card-title">
+            <span>Cumulative Lead Trajectory across Booths</span>
+            <i data-lucide="trending-up" class="card-title-icon" style="width:18px;height:18px"></i>
+          </div>
+          <div id="lead-trajectory-chart" style="min-height: 250px;"></div>
+        </article>
+
+      </section>
+
+      <!-- Row 3: Booth Level Detailed Table -->
+      <section class="card">
+        <div class="table-section">
+          
+          <div class="table-controls">
+            <div class="card-title" style="margin-bottom:0">
+              <span>Granular Polling Booth Analysis</span>
+            </div>
+            
+            <div class="search-box">
+              <i data-lucide="search"></i>
+              <input type="text" id="booth-search-input" placeholder="Search booth name, number or lead party..." />
+            </div>
+
+            <select id="booth-party-filter" class="select-custom" style="width: 180px; padding: 8px 12px">
+              <option value="all">All Leading Parties</option>
+              <option value="BJP">BJP Lead</option>
+              <option value="INC">INC Lead</option>
+              <option value="OTHER">Others Lead</option>
+            </select>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Booth No.</th>
+                  <th>Polling Station Name</th>
+                  <th style="color: var(--color-bjp)">BJP (V)</th>
+                  <th style="color: var(--color-inc)">INC (V)</th>
+                  <th>Others</th>
+                  <th>NOTA</th>
+                  <th>Total Votes</th>
+                  <th>Leading Party</th>
+                  <th>Margin</th>
+                </tr>
+              </thead>
+              <tbody id="booth-table-body">
+                <tr>
+                  <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px">
+                    <i data-lucide="info" style="display:inline-block; vertical-align:middle; margin-right:8px"></i>
+                    Upload Form 20 file to populate polling booth data
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Table Pagination Control -->
+          <div class="pagination">
+            <span class="pagination-info" id="table-pagination-info">Showing 0 to 0 of 0 booths</span>
+            <div class="pagination-btn-group">
+              <button id="prev-page-btn" class="pagination-btn" disabled>
+                <i data-lucide="chevron-left" style="width:14px;height:14px"></i> Previous
+              </button>
+              <button id="next-page-btn" class="pagination-btn" disabled>
+                Next <i data-lucide="chevron-right" style="width:14px;height:14px"></i>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- =========================================
+         RIGHT AI ELECTION AGENT (CHATBOT)
+         ========================================= -->
+    <aside class="chat-container">
+      
+      <div class="chat-header">
+        <div class="agent-avatar">
+          <i data-lucide="bot"></i>
+        </div>
+        <div class="agent-title">
+          <h3>MP-AI Agent <span class="status-dot-active"></span></h3>
+          <p>Analyzing MP Election 2023</p>
+        </div>
+      </div>
+
+      <div class="chat-body" id="chat-messages-container">
+        <!-- Welcoming chatbot message -->
+        <div class="message message-agent">
+          <p>Namaste! I am your <strong>Madhya Pradesh Election Commission AI Agent</strong>. 🗳️</p>
+          <p>I can perform deep analytics on the Form 20 dataset for you in real-time.</p>
+          <p>To start, select an administrative division or constituency on the left and drag & drop your <strong>Form 20 Excel or CSV sheet</strong>.</p>
+          <p>Once loaded, feel free to ask me questions like:</p>
+          <ul>
+            <li><em>"Who won booth number 23?"</em></li>
+            <li><em>"Which booth had the highest victory margin?"</em></li>
+            <li><em>"List the top 5 booths where BJP leads"</em></li>
+            <li><em>"Show me the overall voter turnout summary"</em></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Quick recommendation chips -->
+      <div class="chat-footer">
+        <div class="chat-suggestions" id="chat-suggestions-box" style="display: none;">
+          <button class="suggestion-btn" data-query="Who won the highest margin booth?">Highest Margin?</button>
+          <button class="suggestion-btn" data-query="Which booth had the lowest voter turnout?">Lowest Turnout?</button>
+          <button class="suggestion-btn" data-query="Summarize BJP vs INC overall wins">BJP vs INC Wins</button>
+          <button class="suggestion-btn" data-query="Give me a constituency overview">Overview</button>
+        </div>
+
+        <div class="chat-input-wrapper">
+          <input type="text" id="chat-input" class="chat-input" placeholder="Ask AI about booth results..." disabled />
+          <button id="chat-send-btn" class="chat-send-btn" disabled>
+            <i data-lucide="send"></i>
+          </button>
+        </div>
+        <div class="chat-agent-credits">
+          AI Agent operating securely on local parsed dataset
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- =========================================
+       SCHEMA MAPPING MODAL
+       ========================================= -->
+  <div id="mapping-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <i data-lucide="sliders-horizontal" style="width: 24px; height: 24px"></i>
+        <h3>Smart Columns Schema Mapper</h3>
+      </div>
+      <div class="modal-body">
+        <p class="modal-description">
+          We found multiple columns in your Form 20 file. To ensure 100% accurate visual analysis and AI operations, please map the key election variables below:
+        </p>
+        
+        <div class="mapping-row">
+          <div class="mapping-label">
+            Polling Station Name
+            <span>Contains booth details or name</span>
+          </div>
+          <select id="map-booth-name" class="select-custom"></select>
+        </div>
+        
+        <div class="mapping-row">
+          <div class="mapping-label">
+            BJP Candidate
+            <span>Votes cast for BJP candidate</span>
+          </div>
+          <select id="map-bjp-votes" class="select-custom"></select>
+        </div>
+        
+        <div class="mapping-row">
+          <div class="mapping-label">
+            INC Candidate
+            <span>Votes cast for INC candidate</span>
+          </div>
+          <select id="map-inc-votes" class="select-custom"></select>
+        </div>
+
+        <div class="mapping-row">
+          <div class="mapping-label">
+            Other Candidates
+            <span>Votes cast for BSP, Ind, etc.</span>
+          </div>
+          <select id="map-other-votes" class="select-custom"></select>
+        </div>
+
+        <div class="mapping-row">
+          <div class="mapping-label">
+            NOTA Votes
+            <span>None of the Above votes column</span>
+          </div>
+          <select id="map-nota-votes" class="select-custom"></select>
+        </div>
+
+        <div class="mapping-row">
+          <div class="mapping-label">
+            Total Valid Votes
+            <span>Sum of all candidate votes</span>
+          </div>
+          <select id="map-total-votes" class="select-custom"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="close-modal-btn" class="btn-secondary">Cancel</button>
+        <button id="apply-mapping-btn" class="btn-primary">Apply & Visualize Data</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JS Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
