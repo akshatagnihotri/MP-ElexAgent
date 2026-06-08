@@ -568,6 +568,12 @@ function applySchemaMapping() {
   document.getElementById("chat-suggestions-box").style.display = "flex";
   document.getElementById("simulator-container").style.display = "block";
   
+  // Hide chart placeholders
+  const voteShareOverlay = document.getElementById("vote-share-overlay");
+  const trajectoryOverlay = document.getElementById("trajectory-overlay");
+  if (voteShareOverlay) voteShareOverlay.classList.add("hidden");
+  if (trajectoryOverlay) trajectoryOverlay.classList.add("hidden");
+  
   // Rerender analytics, tables & charts
   updateDashboardMetrics();
   filterAndRenderTable();
@@ -761,27 +767,45 @@ function updatePaginationUI() {
 function renderEmptyCharts() {
   // Empty Vote Share donut
   const shareOptions = {
-    series: [1, 1, 1],
-    labels: ['BJP', 'INC', 'Others'],
+    series: [],
+    labels: [],
     colors: ['#ff9933', '#138808', '#64748b'],
     chart: { type: 'donut', height: 260, foreColor: '#94a3b8' },
-    plotOptions: { donut: { labels: { show: true, name: { show: true }, value: { show: true, formatter: () => "0" } } } },
     legend: { position: 'bottom' },
-    tooltip: { enabled: false }
+    noData: {
+      text: 'Awaiting Data',
+      align: 'center',
+      verticalAlign: 'middle',
+      style: {
+        color: '#94a3b8',
+        fontSize: '14px',
+        fontFamily: 'Outfit'
+      }
+    }
   };
   state.charts.voteShare = new ApexCharts(document.querySelector("#vote-share-chart"), shareOptions);
   state.charts.voteShare.render();
   
   // Empty Cumulative Lead Trajectory
   const leadOptions = {
-    series: [{ name: 'Lead', data: [0, 0, 0, 0, 0] }],
+    series: [],
     chart: { type: 'area', height: 260, toolbar: { show: false }, foreColor: '#94a3b8' },
-    colors: ['#6366f1'],
-    stroke: { curve: 'smooth', width: 2 },
-    fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
+    colors: ['#ff9933', '#138808'],
+    stroke: { curve: 'smooth', width: 2.5 },
+    fill: { type: 'gradient', gradient: { opacityFrom: 0.15, opacityTo: 0.02 } },
     dataLabels: { enabled: false },
-    xaxis: { categories: ['B1', 'B2', 'B3', 'B4', 'B5'], title: { text: 'Booths Sorted Sequentially' } },
-    yaxis: { title: { text: 'Cumulative Margin' } }
+    noData: {
+      text: 'Awaiting Data',
+      align: 'center',
+      verticalAlign: 'middle',
+      style: {
+        color: '#94a3b8',
+        fontSize: '14px',
+        fontFamily: 'Outfit'
+      }
+    },
+    xaxis: { categories: [], title: { text: 'Booths Sorted Sequentially' } },
+    yaxis: { title: { text: 'Cumulative Votes' } }
   };
   state.charts.leadTrajectory = new ApexCharts(document.querySelector("#lead-trajectory-chart"), leadOptions);
   state.charts.leadTrajectory.render();
@@ -794,9 +818,11 @@ function renderAnalyticalCharts() {
   let totalOthers = 0;
   let totalNota = 0;
   
-  // Generate Cumulative Lead Trajectory
-  let cumulativeMargin = 0;
-  const trajectoryData = [];
+  // Generate Cumulative Vote Progression
+  let cumulativeBjp = 0;
+  let cumulativeInc = 0;
+  const trajectoryBjpData = [];
+  const trajectoryIncData = [];
   const trajectoryCategories = [];
   
   const workingData = getWorkingDataset();
@@ -807,9 +833,11 @@ function renderAnalyticalCharts() {
     totalOthers += b.otherVotes;
     totalNota += b.notaVotes;
     
-    // BJP vs INC cumulative margin
-    cumulativeMargin += (b.bjpVotes - b.incVotes);
-    trajectoryData.push(cumulativeMargin);
+    // BJP & INC cumulative totals
+    cumulativeBjp += b.bjpVotes;
+    cumulativeInc += b.incVotes;
+    trajectoryBjpData.push(cumulativeBjp);
+    trajectoryIncData.push(cumulativeInc);
     
     // Sampling X-Axis labels to keep it crisp
     if (workingData.length < 30 || idx % Math.ceil(workingData.length / 10) === 0) {
@@ -897,27 +925,28 @@ function renderAnalyticalCharts() {
     `;
   }
   
-  // Decide Trajectory Gradient Color based on winner
-  const leadColor = cumulativeMargin > 0 ? '#ff9933' : '#138808';
-  
-  // Update Lead Trajectory Chart
+  // Update Lead Trajectory Chart to Cumulative Vote Progression
   state.charts.leadTrajectory.updateOptions({
-    series: [{
-      name: 'Cumulative BJP vs INC Lead',
-      data: trajectoryData
-    }],
-    colors: [leadColor],
+    series: [
+      {
+        name: `${state.mappedColumns.bjpName || 'BJP'} Cumulative`,
+        data: trajectoryBjpData
+      },
+      {
+        name: `${state.mappedColumns.incName || 'INC'} Cumulative`,
+        data: trajectoryIncData
+      }
+    ],
+    colors: ['#ff9933', '#138808'],
     xaxis: {
       categories: trajectoryCategories,
       title: { text: `Polling Stations Sequentially (1 to ${workingData.length})` }
     },
     yaxis: {
-      title: { text: 'Cumulative Margin' },
+      title: { text: 'Cumulative Votes' },
       labels: {
         formatter: (value) => {
-          if (value > 0) return `BJP +${value.toLocaleString()}`;
-          if (value < 0) return `INC +${Math.abs(value).toLocaleString()}`;
-          return 'Tied';
+          return value.toLocaleString();
         }
       }
     },
@@ -939,14 +968,14 @@ function renderAnalyticalCharts() {
           cumNota += workingData[i].notaVotes;
         }
         
-        // Determine cumulative winner among BJP, INC, and Others
+        // Determine cumulative winner among BJP, INC
         const cumSorted = [
-          { party: 'BJP', votes: cumBjp, color: '#ff9933' },
-          { party: 'INC', votes: cumInc, color: '#138808' },
-          { party: 'Others', votes: cumOthers, color: '#06b6d4' }
+          { party: 'BJP', votes: cumBjp, color: '#ff9933', name: state.mappedColumns.bjpName || 'BJP' },
+          { party: 'INC', votes: cumInc, color: '#138808', name: state.mappedColumns.incName || 'INC' }
         ].sort((a, b) => b.votes - a.votes);
         
         const cumLeader = cumSorted[0].party;
+        const cumLeaderName = cumSorted[0].name;
         const cumMargin = cumSorted[0].votes - cumSorted[1].votes;
         const cumLeaderColor = cumSorted[0].color;
         
@@ -962,7 +991,7 @@ function renderAnalyticalCharts() {
         const otherMargin = b.otherVotes - winVotes;
         
         return `
-          <div style="background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.15); padding: 12px; border-radius: 8px; font-family: 'Outfit', sans-serif; min-width: 260px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); backdrop-filter: blur(8px); color: #f8fafc; line-height: 1.4;">
+          <div style="background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.15); padding: 12px; border-radius: 8px; font-family: 'Outfit', sans-serif; min-width: 280px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); backdrop-filter: blur(8px); color: #f8fafc; line-height: 1.4;">
             <div style="font-weight: 700; font-size: 0.8rem; color: #22d3ee; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; margin-bottom: 8px; white-space: normal; word-break: break-word;">
               📍 Booth #${b.boothNumber}: ${b.boothName}
             </div>
@@ -971,11 +1000,11 @@ function renderAnalyticalCharts() {
               Booth Results & Margins:
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 3px;">
-              <span style="color: ${bjpColor}">BJP Votes</span>
+              <span style="color: ${bjpColor}">BJP: ${state.mappedColumns.bjpName || 'BJP'}</span>
               <span style="font-weight: 700">${b.bjpVotes.toLocaleString()} (${bjpMargin === 0 ? `🏆 Lead +${b.margin.toLocaleString()}` : `${bjpMargin.toLocaleString()}`})</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 3px;">
-              <span style="color: ${incColor}">INC Votes</span>
+              <span style="color: ${incColor}">INC: ${state.mappedColumns.incName || 'INC'}</span>
               <span style="font-weight: 700">${b.incVotes.toLocaleString()} (${incMargin === 0 ? `🏆 Lead +${b.margin.toLocaleString()}` : `${incMargin.toLocaleString()}`})</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 3px;">
@@ -988,24 +1017,17 @@ function renderAnalyticalCharts() {
             </div>
             
             <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
-              Cumulative Totals:
+              Cumulative Progression:
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 3px;">
-              <span style="color: ${bjpColor}">BJP Sum</span>
-              <span>${cumBjp.toLocaleString()}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 3px;">
-              <span style="color: ${incColor}">INC Sum</span>
-              <span>${cumInc.toLocaleString()}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 3px;">
-              <span style="color: ${otherColor}">Others Sum</span>
-              <span>${cumOthers.toLocaleString()}</span>
+              <span style="color: ${bjpColor}">BJP Running Sum</span>
+              <span style="font-weight: 700">${cumBjp.toLocaleString()}</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 6px; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px;">
-              <span style="color: ${notaColor}">NOTA Sum</span>
-              <span>${cumNota.toLocaleString()}</span>
+              <span style="color: ${incColor}">INC Running Sum</span>
+              <span style="font-weight: 700">${cumInc.toLocaleString()}</span>
             </div>
+            
             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 700; color: #f8fafc; margin-top: 2px;">
               <span>Cumulative Lead</span>
               <span style="color: ${cumLeaderColor}">
@@ -1476,6 +1498,12 @@ function resetDashboard() {
     simStatus.style.borderColor = "rgba(99, 102, 241, 0.2)";
     simStatus.style.color = "var(--accent-indigo)";
   }
+  
+  // Show overlays on reset
+  const voteShareOverlay = document.getElementById("vote-share-overlay");
+  const trajectoryOverlay = document.getElementById("trajectory-overlay");
+  if (voteShareOverlay) voteShareOverlay.classList.remove("hidden");
+  if (trajectoryOverlay) trajectoryOverlay.classList.remove("hidden");
   
   renderEmptyCharts();
   filterAndRenderTable();
